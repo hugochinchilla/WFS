@@ -1,3 +1,7 @@
+Version 2.05
+    * MAX_LATENCY is specified in seconds, ping in ubuntu does not allow timeouts
+      below 1 second.
+
 Version 2.04
     * Added a cleanup function to remove added routes before exiting
 
@@ -14,7 +18,7 @@ Version 2.03
     * ADD: README with description of variables and info now included in package & SVN
     * ADD: Changelog now included in package & SVN
 
-Version 2.02
+Version 2.02 (See 2.05)
 
     WFS now checks the maximum latency as specfied in miliseconds. If this
     threshold is exceeded, a failover is performed. This may be useful for

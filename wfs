@@ -7,7 +7,7 @@
 # Licence = GNU GPL
 #
 
-VERSION=2.04
+VERSION=2.05
 
 CONFIG=/etc/wfs
 CONFIG_FILE="$CONFIG/wfs.conf"
@@ -19,7 +19,7 @@ else
     TARGETS_FILE="$CONFIG/targets.txt"
     PRIMARY_GW=10.0.0.1
     SECONDARY_GW=192.168.1.1
-    MAX_LATENCY=1000
+    MAX_LATENCY=1
     INTERVAL=20
     TEST_COUNT=2
     THRESHOLD=3
