@@ -6,6 +6,7 @@ Wan Failover Script
 Original script by louwrentius@gmail.com
 
 Modified to add a cleanup function to remove routes added by the script on startup.
+The cleanup function (called wfs_stop) only works with deamon mode.
 
 
 Design
@@ -17,19 +18,17 @@ default gateway.
 
 ## Installation
 
-
-    untar the tar file
-    run the install.sh script.
-    edit the configuration /etc/wfs/wfs.conf to your liking
-    add target hosts used for testing in /etc/wfs/targets.txt
-    start wfs through "/etc/init.d/wfs start"
+ * untar the tar file
+ * run the install.sh script.
+ * edit the configuration /etc/wfs/wfs.conf to your liking
+ * add target hosts used for testing in /etc/wfs/targets.txt
+ * start wfs through "/etc/init.d/wfs start"
 
 ## For email notifications (Ubuntu)
 
-    apt-get install mailutils postfix (installs mail and a local MTA)
-    configure postfix as an internet gateway
-    do not forward an inbound mail to this instance, it should be behind a firewall and
-    for outbound notification traffic only.
+  * apt-get install mailutils postfix (installs mail and a local MTA)
+  * configure postfix as an internet gateway
+  * do not forward an inbound mail to this instance, it should be behind a firewall and for outbound notification traffic only.
 
 ## Assumption
 
@@ -75,27 +74,27 @@ Example:
 
 The primary WAN gateway is 10.0.0.1 in this example.
 
-server:~# route -n
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-74.125.77.104   10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
-209.85.229.104  10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
-219.25.29.14  10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
-192.168.0.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
-10.0.0.0        0.0.0.0         255.255.255.0   U     0      0        0 eth1
-0.0.0.0         10.0.0.1        0.0.0.0         UG    0      0        0 eth1
+    server:~# route -n
+    Kernel IP routing table
+    Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+    74.125.77.104   10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
+    209.85.229.104  10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
+    219.25.29.14  10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
+    192.168.0.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
+    10.0.0.0        0.0.0.0         255.255.255.0   U     0      0        0 eth1
+    0.0.0.0         10.0.0.1        0.0.0.0         UG    0      0        0 eth1
 
 When a failover to a backup WAN link occurs (192.168.0.1) it would look like this:
 
-server:~# route -n
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-74.125.77.104   10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
-209.85.229.104  10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
-219.25.29.14  10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
-192.168.0.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
-10.0.0.0        0.0.0.0         255.255.255.0   U     0      0        0 eth1
-0.0.0.0         192.168.0.1     0.0.0.0         UG    0      0        0 eth0
+    server:~# route -n
+    Kernel IP routing table
+    Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+    74.125.77.104   10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
+    209.85.229.104  10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
+    219.25.29.14  10.0.0.1        255.255.255.255 UGH   0      0        0 eth1
+    192.168.0.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
+    10.0.0.0        0.0.0.0         255.255.255.0   U     0      0        0 eth1
+    0.0.0.0         192.168.0.1     0.0.0.0         UG    0      0        0 eth0
 
 ## Configuration options
 
@@ -106,9 +105,9 @@ be used for testing.
 
 Contents of /etc/wfs/targets.txt:
 
-74.125.77.104
-209.85.229.104
-219.25.29.14
+    74.125.77.104
+    209.85.229.104
+    219.25.29.14
 
 These are the hosts that are used to test if the primary WAN interface is available. Please
 note that this is an example.
@@ -176,7 +175,7 @@ These two variables can be used to execute a custom command after a failover or 
 performed. When switching to the secondary interface, the secondary_cmd command is executed.
 When switching back to the primary interface, primary_cmd is executed.
 
-MAX_LATENCY=1000
+MAX_LATENCY=1
 
 The maximum allowed latency on an ICMP ping request before the request is considered to have
 failed.  This allows us to failover in the even of a severely degraded connection which is
@@ -190,41 +189,42 @@ Logging can be more verbose by configuring the 'DEBUG' option within the configu
 
 Example of debug output:
 
-May 29 21:47:08 server WFS: INFO ------------------------------
-May 29 21:47:08 server WFS: INFO  WAN Failover Script 2.0
-May 29 21:47:08 server WFS: INFO ------------------------------
-May 29 21:47:08 server WFS: INFO  Primary gateway: 10.0.0.1
-May 29 21:47:08 server WFS: INFO  Secondary gateway: 10.0.0.1
-May 29 21:47:08 server WFS: INFO  Threshold before failover: 3
-May 29 21:47:08 server WFS: INFO  Number of target hosts: 4
-May 29 21:47:08 server WFS: INFO  Tests per host: 2
-May 29 21:47:08 server WFS: INFO ------------------------------
-May 29 21:47:08 server WFS: INFO Starting monitoring of WAN link.
-May 29 21:47:09 server WFS: INFO WAN Link: PRIMARY
-May 29 21:47:30 server WFS: INFO Host 74.125.77.104 UNREACHABLE
-May 29 21:47:30 server WFS: INFO Failed targets is 1, threshold is 3.
-May 29 21:47:30 server WFS: INFO WAN Link: PRIMARY
-May 29 21:47:36 server WFS: INFO Host 69.147.125.65 UNREACHABLE
-May 29 21:47:36 server WFS: INFO Failed targets is 2, threshold is 3.
-May 29 21:47:36 server WFS: INFO WAN Link: PRIMARY
-May 29 21:47:42 server WFS: INFO Host 98.137.149.56 UNREACHABLE
-May 29 21:47:42 server WFS: INFO Failed targets is 3, threshold is 3.
-May 29 21:47:42 server WFS: INFO Primary WAN link failed. Switched to secondary link.
-May 29 21:48:18 server WFS: INFO Host 209.85.227.105 UNREACHABLE
-May 29 21:48:18 server WFS: INFO Failed targets is 3, threshold is 3.
-May 29 21:48:24 server WFS: INFO Host 74.125.77.104 UNREACHABLE
-May 29 21:48:24 server WFS: INFO Failed targets is 3, threshold is 3.
-May 29 21:48:30 server WFS: INFO Host 69.147.125.65 UNREACHABLE
-May 29 21:48:30 server WFS: INFO Failed targets is 3, threshold is 3.
-May 29 21:48:36 server WFS: INFO Host 98.137.149.56 UNREACHABLE
-May 29 21:48:36 server WFS: INFO Failed targets is 3, threshold is 3.
-May 29 21:48:42 server WFS: INFO Host 209.85.227.105 UNREACHABLE
-May 29 21:48:42 server WFS: INFO Failed targets is 3, threshold is 3.
-May 29 21:48:48 server WFS: INFO Host 74.125.77.104 UNREACHABLE
-May 29 21:48:48 server WFS: INFO Failed targets is 3, threshold is 3.
-May 29 21:48:54 server WFS: INFO Failed targets is 2, threshold is 3.
-May 29 21:49:01 server WFS: INFO Failed targets is 1, threshold is 3.
-May 29 21:49:07 server WFS: INFO Primary WAN link OK. Switched back to primary link.
-May 29 21:49:43 server WFS: INFO WAN Link: PRIMARY
-May 29 21:50:04 server WFS: INFO WAN Link: PRIMARY
-May 29 21:50:25 server WFS: INFO WAN Link: PRIMARY
+    May 29 21:47:08 server WFS: INFO ------------------------------
+    May 29 21:47:08 server WFS: INFO  WAN Failover Script 2.0
+    May 29 21:47:08 server WFS: INFO ------------------------------
+    May 29 21:47:08 server WFS: INFO  Primary gateway: 10.0.0.1
+    May 29 21:47:08 server WFS: INFO  Secondary gateway: 10.0.0.1
+    May 29 21:47:08 server WFS: INFO  Threshold before failover: 3
+    May 29 21:47:08 server WFS: INFO  Number of target hosts: 4
+    May 29 21:47:08 server WFS: INFO  Tests per host: 2
+    May 29 21:47:08 server WFS: INFO ------------------------------
+    May 29 21:47:08 server WFS: INFO Starting monitoring of WAN link.
+    May 29 21:47:09 server WFS: INFO WAN Link: PRIMARY
+    May 29 21:47:30 server WFS: INFO Host 74.125.77.104 UNREACHABLE
+    May 29 21:47:30 server WFS: INFO Failed targets is 1, threshold is 3.
+    May 29 21:47:30 server WFS: INFO WAN Link: PRIMARY
+    May 29 21:47:36 server WFS: INFO Host 69.147.125.65 UNREACHABLE
+    May 29 21:47:36 server WFS: INFO Failed targets is 2, threshold is 3.
+    May 29 21:47:36 server WFS: INFO WAN Link: PRIMARY
+    May 29 21:47:42 server WFS: INFO Host 98.137.149.56 UNREACHABLE
+    May 29 21:47:42 server WFS: INFO Failed targets is 3, threshold is 3.
+    May 29 21:47:42 server WFS: INFO Primary WAN link failed. Switched to secondary link.
+    May 29 21:48:18 server WFS: INFO Host 209.85.227.105 UNREACHABLE
+    May 29 21:48:18 server WFS: INFO Failed targets is 3, threshold is 3.
+    May 29 21:48:24 server WFS: INFO Host 74.125.77.104 UNREACHABLE
+    May 29 21:48:24 server WFS: INFO Failed targets is 3, threshold is 3.
+    May 29 21:48:30 server WFS: INFO Host 69.147.125.65 UNREACHABLE
+    May 29 21:48:30 server WFS: INFO Failed targets is 3, threshold is 3.
+    May 29 21:48:36 server WFS: INFO Host 98.137.149.56 UNREACHABLE
+    May 29 21:48:36 server WFS: INFO Failed targets is 3, threshold is 3.
+    May 29 21:48:42 server WFS: INFO Host 209.85.227.105 UNREACHABLE
+    May 29 21:48:42 server WFS: INFO Failed targets is 3, threshold is 3.
+    May 29 21:48:48 server WFS: INFO Host 74.125.77.104 UNREACHABLE
+    May 29 21:48:48 server WFS: INFO Failed targets is 3, threshold is 3.
+    May 29 21:48:54 server WFS: INFO Failed targets is 2, threshold is 3.
+    May 29 21:49:01 server WFS: INFO Failed targets is 1, threshold is 3.
+    May 29 21:49:07 server WFS: INFO Primary WAN link OK. Switched back to primary link.
+    May 29 21:49:43 server WFS: INFO WAN Link: PRIMARY
+    May 29 21:50:04 server WFS: INFO WAN Link: PRIMARY
+    May 29 21:50:25 server WFS: INFO WAN Link: PRIMARY
+
