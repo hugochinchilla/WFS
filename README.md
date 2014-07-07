@@ -1,10 +1,22 @@
+WFS
+===
+
+Wan Failover Script
+
+Original script by louwrentius@gmail.com
+
+Modified to add a cleanup function to remove routes added by the script on startup.
+
+
 Design
+======
 
 WFS checks if your WAN connection is still up by sending ICMP messages to multiple target
 hosts. It automatically switches between primary and secondary WAN link by changing the
 default gateway.
 
-Installation
+## Installation
+
 
     untar the tar file
     run the install.sh script.
@@ -12,20 +24,20 @@ Installation
     add target hosts used for testing in /etc/wfs/targets.txt
     start wfs through "/etc/init.d/wfs start"
 
-For email notifications (Ubuntu)
+## For email notifications (Ubuntu)
 
     apt-get install mailutils postfix (installs mail and a local MTA)
     configure postfix as an internet gateway
     do not forward an inbound mail to this instance, it should be behind a firewall and
     for outbound notification traffic only.
 
-Assumption
+## Assumption
 
 I asume that your host has access to two different routers that act as the primary and backup
 gateway for the primary WAN connection and backup WAN connection. It may be that your host
 has two interfaces, with two IP-addresses for each WAN connection, but this is not required.
 
-How WFS tests for link availability
+## How WFS tests for link availability
 
 WFS uses ICMP messages to test if the primary WAN link is still up. There is a risk that the
 target host goes off-line while the WAN link is perfectly fine. This would cause an
@@ -45,12 +57,12 @@ Your default gateway address on your ISP's network is a good host to have in you
 file as this confines some of the ICMP traffic to your subnet at your ISP as well.  It is
 also a great test of whether you can reach the Internet or not!.
 
-How failover works
+## How failover works
 
 WFS changes the default gateway and thus the default route to which all traffic is sent. It
 uses the native 'route' command found on most Linux distributions.
 
-When the primary WAN link is restored
+## When the primary WAN link is restored
 
 When executed, WFS adds static routes for all target hosts that are used for availability
 monitoring. These routes specifically use the router/gateway for the primary WAN interface,
@@ -85,7 +97,7 @@ Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
 10.0.0.0        0.0.0.0         255.255.255.0   U     0      0        0 eth1
 0.0.0.0         192.168.0.1     0.0.0.0         UG    0      0        0 eth0
 
-Configuration options
+## Configuration options
 
 To configure WFS to your needs, edit the WFS script itself or edit /etc/wfs/wfs.conf.
 
@@ -170,7 +182,7 @@ The maximum allowed latency on an ICMP ping request before the request is consid
 failed.  This allows us to failover in the even of a severely degraded connection which is
 still live but running very slowly.
 
-Logging
+## Logging
 
 Log messages are sent to /var/log/daemon or /var/log/messages.
 

@@ -1,3 +1,6 @@
+Version 2.04
+    * Added a cleanup function to remove added routes before exiting
+
 Version 2.03
     * COOLDOWNDELAY - deprecated use COOLDOWNDELAY01 and COOLDOWNDELAY02
     * COOLDOWNDELAY01 - The period of time to wait after a FAILOVER event before commencing
