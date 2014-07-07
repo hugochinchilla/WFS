@@ -1,0 +1,303 @@
+#!/usr/bin/env bash
+#
+# Linux WAN failover script.
+#
+# Copyright 2010 Louwrentius
+#
+# Licence = GNU GPL
+#
+
+VERSION=2.03
+
+CONFIG=/etc/wfs
+CONFIG_FILE="$CONFIG/wfs.conf"
+
+if [ -e "$CONFIG_FILE" ]
+then
+    . $CONFIG_FILE
+else
+    TARGETS_FILE="$CONFIG/targets.txt"
+    PRIMARY_GW=10.0.0.1
+    SECONDARY_GW=192.168.1.1
+    MAX_LATENCY=1000
+    INTERVAL=20
+    TEST_COUNT=2
+    THRESHOLD=3
+    COOLDOWNDELAY=20
+    TTL=""
+    COOLDOWNDELAY01=3600
+    COOLDOWNDELAY02=600
+    MAIL_TARGET=""
+    DAEMON=1
+    QUIET=0
+    PIDFILE=/var/run/wfs.pid
+    #
+    # If some command must be run after a failover or restore, please specify
+    # the commands within these variables.
+    #
+    PRIMARY_CMD=""
+    SECONDARY_CMD=""
+fi
+
+TARGETS_FAILED=0
+ACTIVE_CONNECTION=""
+TEST_INTERVAL="$INTERVAL"
+NO_OF_TARGETS=ERROR
+
+
+# --- do not change anything below ---
+
+route -n | grep -w "$PRIMARY_GW" | grep -w "0.0.0.0" >> /dev/null 2>&1
+if [ "$?" = "0" ]
+then
+    ACTIVE_CONNECTION=PRIMARY
+else
+    ACTIVE_CONNECTION=SECONDARY
+fi
+
+log () {
+
+    TYPE="$1"
+    MSG="$2"
+    DATE=`date +%b\ %d\ %H:%M:%S`
+    case "$TYPE" in
+        "ERROR" )
+                    log2syslog "$TYPE" "$TYPE $MSG"
+                    ;;
+        "DEBUG" )
+                    if [ "$DEBUG" = "1" ]
+                    then
+                        if [ "$QUIET" = "0" ]
+                        then
+                            echo "$DATE" "$MSG"
+                        fi
+                        log2syslog "$TYPE" "$TYPE $MSG"
+                    fi
+                    
+                    ;;
+        "INFO" )
+                    if [ "$QUIET" = "0" ] && [ "$DEBUG" = "1" ]
+                    then
+                        echo "$DATE $MSG" 
+                    fi
+                    log2syslog "$TYPE" "$TYPE $MSG"
+                    ;;
+    esac
+}
+
+log2mail () {
+
+    SUBJECT="$1"
+    BODY="$2"
+    DATE=`date +%b\ %d\ %H:%M:%S`
+    if [ ! -z "$MAIL_TARGET" ]
+    then
+        echo "$DATE - $BODY" | mail -s "$SUBJECT" "$MAIL_TARGET" &
+    fi
+}
+
+log2syslog () {
+
+    TYPE=`echo "$1" | awk '{print tolower($0)}'`
+    MSG="$2"
+
+    echo "$MSG" | logger -t "WFS" -p daemon."$TYPE"
+}
+
+init_wfs () {
+
+    if [ ! -e "$TARGETS_FILE" ]
+    then
+        log ERROR "Targets file $TARGETS_FILE does not exist."
+        exit 1
+    else
+        TARGETS=`cat "$TARGETS_FILE"`
+        TMPVAR=( $TARGETS )
+        NO_OF_TARGETS=${#TMPVAR[@]}
+    fi
+
+    if [ -z "$TARGETS" ]
+    then
+        log ERROR "No targets to test availability, targets file $TARGETS_FILE empty?."
+        exit 1
+    else
+        for x in $TARGETS
+        do
+            log DEBUG "Adding static route for host $x"
+            route add -host "$x" gw "$PRIMARY_GW" >> /dev/null 2>&1
+        done
+    fi
+}
+
+
+check_for_pid () {
+
+    if [ -e "$PIDFILE" ]
+    then
+        log ERROR "PID file $PIDFILE exists. Aborting."
+        exit 1
+    fi
+}
+
+route_del () {
+
+    route del default gw "$1"
+}
+
+display_header () {
+
+    log INFO "------------------------------"
+    log INFO " WAN Failover Script $VERSION" 
+    log INFO "------------------------------"
+    log INFO " Primary gateway: $PRIMARY_GW"
+    log INFO " Secondary gateway: $SECONDARY_GW"
+    log INFO " Max latency in ms: $MAX_LATENCY"
+    log INFO " Threshold before failover: $THRESHOLD"
+    log INFO " Number of target hosts: $NO_OF_TARGETS"
+    log INFO " Tests per host: $TEST_COUNT"
+    log INFO "------------------------------"
+}
+
+
+#
+# This route allows testing if the failed primary link
+# Is available again, when in failover mode.
+#
+
+
+test_single_target () {
+
+    TARGET="$1"
+    log DEBUG "Test interval between hosts is $TEST_INTERVAL"
+
+    ping -W "$MAX_LATENCY" -c "$TEST_COUNT" "$TARGET" >> /dev/null 2>&1
+    if [ ! "$?" = "0" ]
+    then
+        log INFO "Host $TARGET UNREACHABLE"
+
+        if [ "$TARGETS_FAILED" -lt "$THRESHOLD" ]
+        then
+            ((TARGETS_FAILED++)) 
+        fi
+        TEST_INTERVAL=1
+    else
+        if [ "$TARGETS_FAILED" -gt "0" ] 
+        then
+            ((TARGETS_FAILED--))
+        fi
+
+        log DEBUG "Host $TARGET OK"
+        if [ "$ACTIVE_CONNECTION" = "PRIMARY" ]
+        then
+            TEST_INTERVAL="$INTERVAL"
+        fi
+    fi
+}
+
+
+test_wan_status () {
+
+    for x in $TARGETS
+    do
+        test_single_target $x
+        if [ "$TARGETS_FAILED" -gt "0" ]
+        then
+            log INFO "Failed targets is $TARGETS_FAILED, threshold is $THRESHOLD."
+        fi
+        check_wan_status
+        sleep "$TEST_INTERVAL"
+    done
+}
+
+route_add () {
+
+    route add default gw "$1"
+}
+
+switch_to_primary () {
+
+    route_del "$SECONDARY_GW"
+    route_add "$PRIMARY_GW"
+    ACTIVE_CONNECTION="PRIMARY"
+}
+
+switch_to_secondary () {
+
+    route_del "$PRIMARY_GW"
+    route_add "$SECONDARY_GW"
+    ACTIVE_CONNECTION="SECONDARY"
+}
+
+check_wan_status () {
+
+    if [ "$TARGETS_FAILED" -ge "$THRESHOLD" ] && [ "$ACTIVE_CONNECTION" = "PRIMARY" ]
+    then
+	switch
+    elif [ "$ACTIVE_CONNECTION" = "SECONDARY" ] 
+    then
+        if [ "$TARGETS_FAILED" = "0" ] 
+        then
+	    switch
+        fi
+    else
+        log INFO "WAN Link: $ACTIVE_CONNECTION"
+    fi
+}
+
+switch () {
+
+    if [ "$ACTIVE_CONNECTION" = "PRIMARY" ]
+    then
+        switch_to_secondary
+        if [ ! -z "$SECONDARY_CMD" ]
+        then
+            eval "$SECONDARY_CMD"
+        fi
+    sleep "5"
+    MSG="Primary WAN link failed. Switched to secondary link."
+    BODY=`route -n`
+    log2mail "$MSG" "$BODY"
+    log INFO "$MSG"
+    log DEBUG "Failover Cooldown started, sleeping for $COOLDOWNDELAY01 seconds."
+    sleep "$COOLDOWNDELAY01"
+
+    elif [ "$ACTIVE_CONNECTION" = "SECONDARY" ]
+    then
+        switch_to_primary
+        if [ ! -z "$PRIMARY_CMD" ]
+        then
+            eval "$PRIMARY_CMD"
+        fi
+    sleep "10"
+    MSG="Primary WAN link OK. Switched back to primary link."
+    BODY=`route -n`
+    log2mail "$MSG" "$BODY"
+    log INFO "$MSG"
+    log DEBUG "Failback Cooldown started, sleeping for $COOLDOWNDELAY02 seconds."
+    sleep "$COOLDOWNDELAY02"
+    fi
+}
+
+start_wfs () {
+
+    init_wfs
+    display_header
+
+    log INFO "Starting monitoring of WAN link."
+
+    while true
+    do
+        test_wan_status
+    done
+}
+
+
+if [ "$DAEMON" = "0" ]
+then
+    check_for_pid
+    start_wfs
+else
+    check_for_pid
+    start_wfs &
+    echo "$!" > "$PIDFILE"
+fi
