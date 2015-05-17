@@ -21,6 +21,7 @@ else
     SECONDARY_GW=192.168.1.1
     MAX_LATENCY=1
     INTERVAL=20
+    INTERVAL2=1
     TEST_COUNT=2
     THRESHOLD=3
     COOLDOWNDELAY=20
@@ -178,12 +179,15 @@ test_single_target () {
         if [ "$TARGETS_FAILED" -lt "$THRESHOLD" ]
         then
             ((TARGETS_FAILED++))
+            TEST_INTERVAL=1
+        else
+            TEST_INTERVAL="$INTERVAL2"
         fi
-        TEST_INTERVAL=1
     else
         if [ "$TARGETS_FAILED" -gt "0" ]
         then
             ((TARGETS_FAILED--))
+            TEST_INTERVAL=1
         fi
 
         log DEBUG "Host $TARGET OK"
