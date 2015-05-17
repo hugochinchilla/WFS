@@ -119,10 +119,12 @@ Here, the primary and secondary (failover) WAN gateway adress is configured. Whe
 is detected, WFS will switch from the primary gateway to the secondary gateway.
 
 INTERVAL=20
+INTERVAL2=1
 TEST_COUNT=2
 
 WFS will test the availability of the primary WAN link each 'INTERVAL' seconds, in this
-example thus 20 seconds. WFS will test by sending 2 ICMP messages.
+example thus 20 seconds. WFS will test by sending 2 ICMP messages. When the secondary WAN 
+is active the test will be each 'INTERVAL2' seconds.
 
 THRESHOLD=3
 
