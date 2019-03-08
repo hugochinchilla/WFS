@@ -138,8 +138,12 @@ check_for_pid () {
 
     if [ -e "$PIDFILE" ]
     then
-        log ERROR "PID file $PIDFILE exists. Aborting."
-        exit 1
+        if [ -d "/proc/$(cat "$PIDFILE")" ]; then
+            log ERROR "PID file $PIDFILE exists. Aborting."
+            exit 1
+        else
+            rm "$PIDFILE"
+        fi
     fi
 }
 
