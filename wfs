@@ -101,6 +101,10 @@ log2syslog () {
     echo "$MSG" | logger -t "WFS" -p daemon."$TYPE"
 }
 
+get_targets() {
+    grep -vx '^$' "$TARGETS_FILE" | grep -v '^#'
+}
+
 init_wfs () {
 
     if [ ! -e "$TARGETS_FILE" ]
@@ -108,17 +112,15 @@ init_wfs () {
         log ERROR "Targets file $TARGETS_FILE does not exist."
         exit 1
     else
-        TARGETS=$(cat "$TARGETS_FILE")
-        TMPVAR=( $TARGETS )
-        NO_OF_TARGETS=${#TMPVAR[@]}
+        NO_OF_TARGETS=$(get_targets | wc -l)
     fi
 
-    if [ -z "$TARGETS" ]
+    if [ "$NO_OF_TARGETS" = 0 ]
     then
         log ERROR "No targets to test availability, targets file $TARGETS_FILE empty?."
         exit 1
     else
-        for x in $TARGETS
+        get_targets | while read x
         do
             log DEBUG "Adding static route for host $x"
             route add -host "$x" gw "$PRIMARY_GW" >> /dev/null 2>&1
@@ -193,7 +195,7 @@ test_single_target () {
 
 test_wan_status () {
 
-    for x in $TARGETS
+    get_targets | while read x
     do
         test_single_target "$x"
         if [ "$TARGETS_FAILED" -gt "0" ]
@@ -289,19 +291,15 @@ start_wfs () {
 
 stop_wfs () {
     log INFO "Got SIGTERM, cleaning and exiting."
-    TARGETS=$(cat "$TARGETS_FILE")
 
     kill "$(cat $PIDFILE)"
     rm $PIDFILE
 
-    if [ ! -z "$TARGETS" ]
-    then
-        for x in $TARGETS
-        do
-            log DEBUG "Removing static route for host $x"
-            route del -host "$x" gw "$PRIMARY_GW" >> /dev/null 2>&1
-        done
-    fi
+    get_targets | while read x
+    do
+        log DEBUG "Removing static route for host $x"
+        route del -host "$x" gw "$PRIMARY_GW" >> /dev/null 2>&1
+    done
 
     exit 0
 }
