@@ -23,8 +23,6 @@ else
     INTERVAL=20
     TEST_COUNT=2
     THRESHOLD=3
-    COOLDOWNDELAY=20
-    TTL=""
     COOLDOWNDELAY01=3600
     COOLDOWNDELAY02=600
     MAIL_TARGET=""
@@ -47,8 +45,7 @@ NO_OF_TARGETS=ERROR
 
 # --- do not change anything below ---
 
-route -n | grep -w "$PRIMARY_GW" | grep -w "0.0.0.0" >> /dev/null 2>&1
-if [ "$?" = "0" ]
+if route -n | grep -w "$PRIMARY_GW" | grep -w "0.0.0.0" >> /dev/null 2>&1
 then
     ACTIVE_CONNECTION=PRIMARY
 else
@@ -59,7 +56,7 @@ log () {
 
     TYPE="$1"
     MSG="$2"
-    DATE=`date +%b\ %d\ %H:%M:%S`
+    DATE=$(date +%b\ %d\ %H:%M:%S)
     case "$TYPE" in
         "ERROR" )
                     log2syslog "$TYPE" "$TYPE $MSG"
@@ -89,7 +86,7 @@ log2mail () {
 
     SUBJECT="$1"
     BODY="$2"
-    DATE=`date +%b\ %d\ %H:%M:%S`
+    DATE=$(date +%b\ %d\ %H:%M:%S)
     if [ ! -z "$MAIL_TARGET" ]
     then
         echo "$DATE - $BODY" | mail -s "$SUBJECT" "$MAIL_TARGET" &
@@ -98,7 +95,7 @@ log2mail () {
 
 log2syslog () {
 
-    TYPE=`echo "$1" | awk '{print tolower($0)}'`
+    TYPE=$(echo "$1" | awk '{print tolower($0)}')
     MSG="$2"
 
     echo "$MSG" | logger -t "WFS" -p daemon."$TYPE"
@@ -111,7 +108,7 @@ init_wfs () {
         log ERROR "Targets file $TARGETS_FILE does not exist."
         exit 1
     else
-        TARGETS=`cat "$TARGETS_FILE"`
+        TARGETS=$(cat "$TARGETS_FILE")
         TMPVAR=( $TARGETS )
         NO_OF_TARGETS=${#TMPVAR[@]}
     fi
@@ -170,8 +167,7 @@ test_single_target () {
     TARGET="$1"
     log DEBUG "Test interval between hosts is $TEST_INTERVAL"
 
-    ping -W "$MAX_LATENCY" -c "$TEST_COUNT" "$TARGET" >> /dev/null 2>&1
-    if [ ! "$?" = "0" ]
+    if ! ping -W "$MAX_LATENCY" -c "$TEST_COUNT" "$TARGET" >> /dev/null 2>&1
     then
         log INFO "Host $TARGET UNREACHABLE"
 
@@ -199,7 +195,7 @@ test_wan_status () {
 
     for x in $TARGETS
     do
-        test_single_target $x
+        test_single_target "$x"
         if [ "$TARGETS_FAILED" -gt "0" ]
         then
             log INFO "Failed targets is $TARGETS_FAILED, threshold is $THRESHOLD."
@@ -255,7 +251,7 @@ switch () {
         fi
     sleep "5"
     MSG="Primary WAN link failed. Switched to secondary link."
-    BODY=`route -n`
+    BODY=$(route -n)
     log2mail "$MSG" "$BODY"
     log INFO "$MSG"
     log DEBUG "Failover Cooldown started, sleeping for $COOLDOWNDELAY01 seconds."
@@ -270,7 +266,7 @@ switch () {
         fi
     sleep "10"
     MSG="Primary WAN link OK. Switched back to primary link."
-    BODY=`route -n`
+    BODY=$(route -n)
     log2mail "$MSG" "$BODY"
     log INFO "$MSG"
     log DEBUG "Failback Cooldown started, sleeping for $COOLDOWNDELAY02 seconds."
@@ -293,9 +289,9 @@ start_wfs () {
 
 stop_wfs () {
     log INFO "Got SIGTERM, cleaning and exiting."
-    TARGETS=`cat "$TARGETS_FILE"`
+    TARGETS=$(cat "$TARGETS_FILE")
 
-    kill `cat $PIDFILE`
+    kill "$(cat $PIDFILE)"
     rm $PIDFILE
 
     if [ ! -z "$TARGETS" ]
