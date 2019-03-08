@@ -14,6 +14,7 @@ CONFIG_FILE="$CONFIG/wfs.conf"
 
 if [ -e "$CONFIG_FILE" ]
 then
+    # shellcheck source=/dev/null
     . $CONFIG_FILE
 else
     TARGETS_FILE="$CONFIG/targets.txt"
@@ -101,8 +102,12 @@ log2syslog () {
     echo "$MSG" | logger -t "WFS" -p daemon."$TYPE"
 }
 
+TARGETS=""
 get_targets() {
-    grep -vx '^$' "$TARGETS_FILE" | grep -v '^#'
+    if [ -z "$TARGETS" ]; then
+        TARGETS=$(grep -vx '^$' "$TARGETS_FILE" | grep -v '^#')
+    fi
+    echo "$TARGETS"| tr ' ' '\n'
 }
 
 init_wfs () {
@@ -120,7 +125,7 @@ init_wfs () {
         log ERROR "No targets to test availability, targets file $TARGETS_FILE empty?."
         exit 1
     else
-        get_targets | while read x
+        get_targets | while read -r x
         do
             log DEBUG "Adding static route for host $x"
             route add -host "$x" gw "$PRIMARY_GW" >> /dev/null 2>&1
@@ -195,7 +200,7 @@ test_single_target () {
 
 test_wan_status () {
 
-    get_targets | while read x
+    get_targets | while read -r x
     do
         test_single_target "$x"
         if [ "$TARGETS_FAILED" -gt "0" ]
@@ -295,7 +300,7 @@ stop_wfs () {
     kill "$(cat $PIDFILE)"
     rm $PIDFILE
 
-    get_targets | while read x
+    get_targets | while read -r x
     do
         log DEBUG "Removing static route for host $x"
         route del -host "$x" gw "$PRIMARY_GW" >> /dev/null 2>&1
